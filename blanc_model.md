@@ -21,6 +21,10 @@ This is the implementation of Christian Blanc and co-workers's electrochemical S
   * figure 8a (stack voltage as a function of current) power as a function of
     current
   * table 4
+  
+Citation for Blanc *et al*:
+
+    Blanc, Christian, and Alfred Rufer. 2010. “Understanding the Vanadium Redox Flow Batteries.” In Paths to Sustainable Energy, edited by Artie Ng, 333–58. InTech. https://doi.org/10.5772/13338. 
 
 **Example Figure 8a**:
 ![Figure 8a](Voltage.png)
@@ -30,9 +34,8 @@ This is the implementation of Christian Blanc and co-workers's electrochemical S
 
 ## Contents
 
-  * [Constants](#Constants)
-  * [Model inputs](#Model-inputs)
-  * [Functions](#functions)
+  * [Preamble](#Preamble)
+  * [Functions](#Functions)
     * [ccell_i](#ccell_i)
     * [cin_i](#cin_i)
     * [concentrations](#concentrations)
@@ -48,42 +51,42 @@ This is the implementation of Christian Blanc and co-workers's electrochemical S
 ---
 <!-- #endregion -->
 
-## Modules
+## Preamble
+
+Here we import the modules, declare some formatting parameters, instantiate constants and model inputs
 
 ```python
 from numpy import array,log,linspace,concatenate,mean
 import matplotlib.pyplot as plt 
 import matplotlib
-#========================================================================
+#==============
 # Formatting
-#========================================================================
+#==============
 colors = 'rgbcmyk'
-plt.rcParams['axes.grid'] = True
-plt.rcParams['grid.linestyle'] = '-.'
-plt.rcParams['font.family'] = "Times"
-plt.rcParams['font.size'] = 20
-```
-
-## Constants
-
-```python
-F   = 96485.3328959             # Faraday constant
-Ru  = 8.314459                  # universal gas constant
-T   = 298.15                    # page 336
-E0  = 1.23                      # V (page 336 V equation 10)
+plt.rcParams['axes.grid'] = True          # Toggles plot gridlines for all figures 
+plt.rcParams['grid.linestyle'] = '-.'     # makes gridlines -. style
+plt.rcParams['font.family'] = "Times"     # Times font
+plt.rcParams['font.size'] = 20            # Font size
+#==============
+# Constants
+#==============
+F   = 96485.3328959                       # Faraday constant
+Ru  = 8.314459                            # universal gas constant
+T   = 298.15                              # page 336
+E0  = 1.23                                # V (page 336 V equation 10)
 dt  = 100
+#==============
+# Model Inputs
+#==============
+n_cell          = 19                      # number of cells
+Rcharge         = .037                    # internal resistance during charging / ( ohm )
+Rdischarge      = .039                    # internal resistance during discharging / ( ohm )
+flowRate        = 2                       # flow rate / ( L / s )
+Cvanadium       = 2                       # electrolyte vanadium concentration ( M )
+tankSize        = 83                      # tank volume ( L )
 ```
 
-## Model inputs
-
-```python
-Ncell           = 19            # number of cells
-Rcharge         = .037          # internal resistance during charging / ( ohm )
-Rdischarge      = .039          # internal resistance during discharging / ( ohm )
-flowRate        = 2             # flow rate / ( L / s )
-Cvanadium       = 2             # electrolyte vanadium concentration ( M )
-tankSize        = 83            # tank volume ( L )
-```
+---
 
 ## Functions
 
@@ -144,8 +147,7 @@ def cout_i(cin_i,
 
 ### *ccell_i*
 
-This function returns the average concentration in the cell (evaluates equation
-18)
+This function returns the average concentration in the cell evaluates equation 18.
 
 ```python
 def ccell_i(cin_i,
@@ -195,13 +197,13 @@ This function calculates the voltage for a cycle of charging or discharging;
 
 #### The input arguments are:
 
-  * the intial State of charge
-  * cutoff state of charge
-  * specify charge or discharge
-  * concentration of Vanadium
-  * volumetric flow rate ( L / s)
-  * Internal resistance ( Ohm )
-  * number of cells in the stack
+  * the intial State of charge (**SoC_init**)
+  * cutoff state of charge (**cutoff_SoC**)
+  * specify charge or discharge (**ch_dch**)
+  * concentration of Vanadium (**concentration_init**)
+  * volumetric flow rate ( L / s) (**flow_rate**)
+  * Internal resistance ( Ohm ) (**R_internal**)
+  * number of cells in the stack (**n_cell**)
   * time step ( s )         [I wasn't exactly sure how this worked when i wrote
 it, so you can probably just vectorize this equation and not use a while loop]
   * imposed current ( A )
@@ -210,12 +212,12 @@ it, so you can probably just vectorize this equation and not use a while loop]
 
 ```python
 def cycle(      SoC_init,
-                cutoffSoC,
+                cutoff_SoC,
                 ch_dch, 
                 concentration_init, 
-                flowRate,
+                flow_rate,
                 R_internal = 1,
-                Ncell = 1,
+                n_cell = 1,
                 dt = 1, 
                 current = 10,
                 Volume = 83,
@@ -226,7 +228,7 @@ def cycle(      SoC_init,
     elif ch_dch == 'dch':
         current*=1
     # this is the equivalent volume that gets modified per cell in the stack
-    VolumePerCell = tankSize/Ncell
+    VolumePerCell = tankSize/n_cell
     # resistance of stack
     U_internal = current*R_internal
     StateOfCharge = SoC_init
@@ -242,7 +244,7 @@ def cycle(      SoC_init,
     # this steps the concentrations forward in time since at different currents
     # they take different amounts of time
     #--------------------------------------------------------------------------
-    while (StateOfCharge <= cutoffSoC if ch_dch == 'ch' else StateOfCharge >= cutoffSoC):
+    while (StateOfCharge <= cutoff_SoC if ch_dch == 'ch' else StateOfCharge >= cutoff_SoC):
         # concentraiton at inlet
         Cv2_in = cin_i(current, 'V2', VolumePerCell, Cv2_i, dt*j)
         Cv3_in = cin_i(current, 'V3', VolumePerCell, Cv3_i, dt*j)
@@ -250,10 +252,10 @@ def cycle(      SoC_init,
         Cv5_in = cin_i(current, 'V5', VolumePerCell, Cv5_i, dt*j)
 
         # concentraiton at outlet
-        Cv2_out = cout_i(Cv2_in, 'V2', Ncell, current, flowRate)
-        Cv3_out = cout_i(Cv3_in, 'V3', Ncell, current, flowRate)
-        Cv4_out = cout_i(Cv4_in, 'V4', Ncell, current, flowRate)
-        Cv5_out = cout_i(Cv5_in, 'V5', Ncell, current, flowRate)
+        Cv2_out = cout_i(Cv2_in, 'V2', n_cell, current, flow_rate)
+        Cv3_out = cout_i(Cv3_in, 'V3', n_cell, current, flow_rate)
+        Cv4_out = cout_i(Cv4_in, 'V4', n_cell, current, flow_rate)
+        Cv5_out = cout_i(Cv5_in, 'V5', n_cell, current, flow_rate)
 
         # Avg concentration in the cell
         Cellv2 = ccell_i(Cv2_in,Cv2_out)
@@ -268,7 +270,7 @@ def cycle(      SoC_init,
         Vnernst = nernst(E0,Cellv2,Cellv3,Cellv4,Cellv5,CH2)
         # calculate the stack voltage  Equation 2 (the internal voltage is
         # distributed over all of the cells so it is normalized here
-        Ustack.append(Vnernst-U_internal/Ncell)
+        Ustack.append(Vnernst-U_internal/n_cell)
         time.append(dt*j)
         j+=1 
     return(array(Ustack),array(time)/3600)
@@ -317,7 +319,7 @@ for j,current in enumerate(currents):
                                     Cvanadium, 
                                     flowRate, 
                                     R_internal = Rcharge,
-                                    Ncell = Ncell,
+                                    n_cell = n_cell,
                                     dt = dt, 
                                     current = current, 
                                     Volume = tankSize,
@@ -330,7 +332,7 @@ for j,current in enumerate(currents):
                                     Cvanadium, 
                                     flowRate, 
                                     R_internal = Rdischarge,
-                                    Ncell = Ncell,
+                                    n_cell = n_cell,
                                     dt = dt, 
                                     current = current, 
                                     Volume = tankSize,
@@ -341,12 +343,12 @@ for j,current in enumerate(currents):
     # voltage of charge and discharge
     voltage = concatenate([chargeV,dchargeV])
     plt.figure(1)
-    plt.plot(time,voltage*Ncell,
+    plt.plot(time,voltage*n_cell,
                 color = colors[j], 
                 linewidth = .5,
                 label = '{} A'.format(current))
     plt.figure(2)
-    plt.plot(time,voltage*Ncell*current,
+    plt.plot(time,voltage*n_cell*current,
                 color = colors[j], 
                 linewidth = .5,
                 label = '{} A'.format(current))

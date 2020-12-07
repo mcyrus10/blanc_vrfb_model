@@ -6,5 +6,9 @@ This is the implementation of Christian Blanc and co-workers's electrochemical S
     current
   * table 4
 
+Citation for Blanc et al:
+
+    Blanc, Christian, and Alfred Rufer. 2010. “Understanding the Vanadium Redox Flow Batteries.” In Paths to Sustainable Energy, edited by Artie Ng, 333–58. InTech. https://doi.org/10.5772/13338.
+
 **Example Figure 8a**:
 <img src="Voltage.png">
